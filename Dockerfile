@@ -1,23 +1,23 @@
-# Use the official .NET 9 SDK image to build the app
+# Etapa 1: build
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
-WORKDIR /app
+WORKDIR /src
 
-# Copy the project file and restore dependencies
-COPY *.csproj ./
+# Copiar el proyecto y restaurar dependencias
+COPY Balance.API.csproj .
 RUN dotnet restore
 
-# Copy the rest of the source code and build the app
-COPY . ./
-RUN dotnet publish -c Release -o out
+# Copiar el resto del código y publicar la aplicación
+COPY . .
+RUN dotnet publish Balance.API.csproj -c Release -o /app/publish
 
-# Use the official .NET 9 runtime image to run the app
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+# Etapa 2: runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
-COPY --from=build /app/out .
+COPY --from=build /app/publish .
 
-# Expose the port the app will run on
+# Puerto que usará la aplicación
 EXPOSE 80
 EXPOSE 443
 
-# Set the entry point to run the app
-ENTRYPOINT ["dotnet", "BalanceTerapeutico.API.dll"]
+# Comando de inicio (entrypoint)
+ENTRYPOINT ["dotnet", "Balance.API.dll"]
