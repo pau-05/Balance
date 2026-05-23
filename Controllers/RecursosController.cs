@@ -9,7 +9,7 @@ namespace Balance.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // Requiere autenticación
+    //[Authorize] // Requiere autenticación
     public class RecursosController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
