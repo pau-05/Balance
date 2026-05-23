@@ -155,14 +155,13 @@ namespace Balance.API.Controllers
         {
             try
             {
-                // Log para depurar
                 Console.WriteLine($"=== LOGIN ATTEMPT ===");
                 Console.WriteLine($"Email: {dto?.Email}");
-                Console.WriteLine($"Password provided: {(string.IsNullOrEmpty(dto?.Password) ? "NO" : "YES")}");
+                Console.WriteLine($"Password: {dto?.Password}");
 
                 if (dto == null || string.IsNullOrEmpty(dto.Email) || string.IsNullOrEmpty(dto.Password))
                 {
-                    Console.WriteLine("Error: Datos inválidos");
+                    Console.WriteLine("ERROR: Datos inválidos");
                     return BadRequest(new { mensaje = "Email y contraseña son requeridos" });
                 }
 
@@ -171,25 +170,17 @@ namespace Balance.API.Controllers
 
                 if (usuario == null)
                 {
-                    Console.WriteLine($"Usuario no encontrado: {dto.Email}");
+                    Console.WriteLine($"Usuario NO encontrado: {dto.Email}");
                     return Unauthorized(new { mensaje = "Credenciales incorrectas" });
                 }
 
                 Console.WriteLine($"Usuario encontrado: {usuario.Email}");
-                Console.WriteLine($"Hash almacenado: {usuario.PasswordHash?.Substring(0, Math.Min(20, usuario.PasswordHash?.Length ?? 0))}...");
+                Console.WriteLine($"Hash almacenado: {usuario.PasswordHash}");
 
                 // Verificar contraseña
-                bool passwordValida = false;
-                try
-                {
-                    passwordValida = ScramHasher.VerifyPassword(dto.Password, usuario.PasswordHash);
-                    Console.WriteLine($"Verificación de contraseña: {(passwordValida ? "VÁLIDA" : "INVÁLIDA")}");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error al verificar contraseña: {ex.Message}");
-                    passwordValida = false;
-                }
+                bool passwordValida = ScramHasher.VerifyPassword(dto.Password, usuario.PasswordHash);
+
+                Console.WriteLine($"Verificación de contraseña: {(passwordValida ? "VÁLIDA" : "INVÁLIDA")}");
 
                 if (!passwordValida)
                 {
@@ -198,7 +189,7 @@ namespace Balance.API.Controllers
 
                 //if (!usuario.Activo)
                 //{
-                  //  return Unauthorized(new { mensaje = "Cuenta desactivada. Contacta con el administrador." });
+                //  return Unauthorized(new { mensaje = "Cuenta desactivada. Contacta con el administrador." });
                 //}
 
                 // Obtener roles del usuario
