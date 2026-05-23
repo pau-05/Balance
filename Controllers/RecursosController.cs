@@ -9,11 +9,14 @@ namespace Balance.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    //[Authorize] // Requiere autenticación
+    [Authorize] // ← Reactivar autenticación
     public class RecursosController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
+
+        // 🔥 Ruta única y consistente para toda la clase
+        private readonly string _uploadsFolder = "/app/data/uploads";
 
         public RecursosController(ApplicationDbContext context, IWebHostEnvironment env)
         {
@@ -25,66 +28,73 @@ namespace Balance.API.Controllers
         [HttpPost("upload")]
         public async Task<IActionResult> UploadFile(IFormFile file, [FromForm] string nombre, [FromForm] string tipo)
         {
-            if (file == null || file.Length == 0)
-                return BadRequest(new { mensaje = "No se ha enviado ningún archivo" });
-
-            // Validar tipo
-            var tiposPermitidos = new[] { "PDF", "VIDEO", "ENLACE", "PLANTILLA" };
-            if (!tiposPermitidos.Contains(tipo))
-                return BadRequest(new { mensaje = "Tipo no válido. Debe ser PDF, VIDEO, ENLACE o PLANTILLA" });
-
-            // Obtener usuario autenticado
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized();
-
-            var usuarioId = Guid.Parse(userIdClaim);
-
-            // Obtener el centro del usuario (tomamos el primero activo)
-            var usuarioCentro = await _context.UsuarioCentros
-                .FirstOrDefaultAsync(uc => uc.IdUsuario == usuarioId && uc.Activo);
-            if (usuarioCentro == null)
-                return BadRequest(new { mensaje = "Usuario no asociado a ningún centro" });
-
-            // Ruta de almacenamiento
-            var uploadsFolder = "/app/data/uploads";
-            if (!Directory.Exists(uploadsFolder))
-                Directory.CreateDirectory(uploadsFolder);
-
-            // Generar nombre único
-            var fileExtension = Path.GetExtension(file.FileName);
-            var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
+            try
             {
-                await file.CopyToAsync(stream);
+                if (file == null || file.Length == 0)
+                    return BadRequest(new { mensaje = "No se ha enviado ningún archivo" });
+
+                // Validar tipo
+                var tiposPermitidos = new[] { "PDF", "VIDEO", "ENLACE", "PLANTILLA" };
+                if (!tiposPermitidos.Contains(tipo))
+                    return BadRequest(new { mensaje = "Tipo no válido. Debe ser PDF, VIDEO, ENLACE o PLANTILLA" });
+
+                // Obtener usuario autenticado
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim))
+                    return Unauthorized();
+
+                var usuarioId = Guid.Parse(userIdClaim);
+
+                // Obtener el centro del usuario
+                var usuarioCentro = await _context.UsuarioCentros
+                    .FirstOrDefaultAsync(uc => uc.IdUsuario == usuarioId && uc.Activo);
+                if (usuarioCentro == null)
+                    return BadRequest(new { mensaje = "Usuario no asociado a ningún centro" });
+
+                // 🔥 Usar la ruta del volumen directamente
+                if (!Directory.Exists(_uploadsFolder))
+                    Directory.CreateDirectory(_uploadsFolder);
+
+                // Generar nombre único
+                var fileExtension = Path.GetExtension(file.FileName);
+                var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+                var filePath = Path.Combine(_uploadsFolder, uniqueFileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // Guardar en BD
+                var recurso = new Recurso
+                {
+                    IdRecurso = Guid.NewGuid(),
+                    Nombre = string.IsNullOrEmpty(nombre) ? file.FileName : nombre,
+                    Tipo = tipo,
+                    UrlAlmacenamiento = $"/uploads/{uniqueFileName}",
+                    TamanioBytes = file.Length,
+                    FechaSubida = DateTime.UtcNow,
+                    SubidoPor = usuarioId,
+                    IdCentro = usuarioCentro.IdCentro
+                };
+
+                _context.Recursos.Add(recurso);
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    mensaje = "Archivo subido correctamente",
+                    id = recurso.IdRecurso,
+                    nombre = recurso.Nombre,
+                    url = recurso.UrlAlmacenamiento,
+                    tipo = recurso.Tipo,
+                    tamano = recurso.TamanioBytes
+                });
             }
-
-            // Guardar en BD
-            var recurso = new Recurso
+            catch (Exception ex)
             {
-                IdRecurso = Guid.NewGuid(),
-                Nombre = string.IsNullOrEmpty(nombre) ? file.FileName : nombre,
-                Tipo = tipo,
-                UrlAlmacenamiento = $"/uploads/{uniqueFileName}", //Ruta relativa para servir el archivo
-                TamanioBytes = file.Length,
-                FechaSubida = DateTime.UtcNow,
-                SubidoPor = usuarioId,
-                IdCentro = usuarioCentro.IdCentro
-            };
-
-            _context.Recursos.Add(recurso);
-            await _context.SaveChangesAsync();
-
-            return Ok(new
-            {
-                id = recurso.IdRecurso,
-                nombre = recurso.Nombre,
-                url = recurso.UrlAlmacenamiento,
-                tipo = recurso.Tipo,
-                tamano = recurso.TamanioBytes
-            });
+                return StatusCode(500, new { mensaje = $"Error interno: {ex.Message}", detalle = ex.StackTrace });
+            }
         }
 
         // GET: api/Recursos
@@ -97,7 +107,6 @@ namespace Balance.API.Controllers
 
             var usuarioId = Guid.Parse(userIdClaim);
 
-            // Obtener el centro del usuario
             var usuarioCentro = await _context.UsuarioCentros
                 .FirstOrDefaultAsync(uc => uc.IdUsuario == usuarioId && uc.Activo);
             if (usuarioCentro == null)
@@ -119,7 +128,7 @@ namespace Balance.API.Controllers
             if (recurso == null)
                 return NotFound();
 
-            // Verificar permisos: solo quien lo subió o admin
+            // Verificar permisos
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim))
                 return Unauthorized();
@@ -129,15 +138,9 @@ namespace Balance.API.Controllers
             if (recurso.SubidoPor != usuarioId && !esAdmin)
                 return Forbid();
 
-            // Determinar la ruta de almacenamiento
-            var uploadsFolder = "/app/data/uploads";
-            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RAILWAY_ENVIRONMENT")))
-            {
-                uploadsFolder = Path.Combine(_env.ContentRootPath, "uploads");
-            }
+            // 🔥 Usar la misma ruta consistente
+            var filePath = Path.Combine(_uploadsFolder, recurso.UrlAlmacenamiento.TrimStart('/'));
 
-            // Eliminar archivo físico
-            var filePath = Path.Combine(uploadsFolder, recurso.UrlAlmacenamiento.TrimStart('/'));
             if (System.IO.File.Exists(filePath))
                 System.IO.File.Delete(filePath);
 
@@ -147,15 +150,17 @@ namespace Balance.API.Controllers
             return Ok(new { mensaje = "Recurso eliminado" });
         }
 
+        // GET: api/Recursos/diagnostic
         [HttpGet("diagnostic")]
+        [AllowAnonymous] // ← Permitir diagnóstico sin autenticación
         public IActionResult Diagnostic()
         {
             var results = new List<object>();
 
-            // Verificar rutas
             var possiblePaths = new[]
             {
-                "/app/data/uploads",
+                "/app/data/uploads",           // Volumen de Railway
+                "/app/uploads",                 // Otra posible ruta
                 Path.Combine(Directory.GetCurrentDirectory(), "uploads"),
                 Path.Combine(_env.ContentRootPath, "uploads")
             };
@@ -174,7 +179,7 @@ namespace Balance.API.Controllers
                         System.IO.File.Delete(testFile);
                         writable = true;
                     }
-                    catch (Exception ex)
+                    catch
                     {
                         writable = false;
                     }
@@ -183,11 +188,30 @@ namespace Balance.API.Controllers
                 results.Add(new { path, exists, writable });
             }
 
+            // 🔥 También verificar la ruta que estamos usando actualmente
+            var currentUploadsExists = Directory.Exists(_uploadsFolder);
+            var currentUploadsWritable = false;
+            if (currentUploadsExists)
+            {
+                try
+                {
+                    var testFile = Path.Combine(_uploadsFolder, "test_current.txt");
+                    System.IO.File.WriteAllText(testFile, "test");
+                    System.IO.File.Delete(testFile);
+                    currentUploadsWritable = true;
+                }
+                catch { }
+            }
+
             return Ok(new
             {
                 environment = Environment.GetEnvironmentVariable("RAILWAY_ENVIRONMENT") ?? "local",
+                railwayGitRepo = Environment.GetEnvironmentVariable("RAILWAY_GIT_REPO_NAME") ?? "no",
                 contentRootPath = _env.ContentRootPath,
                 currentDirectory = Directory.GetCurrentDirectory(),
+                currentUploadsFolder = _uploadsFolder,
+                currentUploadsExists,
+                currentUploadsWritable,
                 paths = results
             });
         }

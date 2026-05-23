@@ -10,14 +10,10 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-//builder.Services.AddOpenApi();
-
-// Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-//builder.Services.AddTransient<IEmailService, EmailService>();
+// builder.Services.AddTransient<IEmailService, EmailService>(); // Comentado temporalmente
 
 // Register the DbContext with the PostgreSQL provider
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -33,7 +29,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false; // En Railway será true
+    options.RequireHttpsMetadata = false;
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -50,30 +46,40 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-//Recursos
-var uploadPath = "/app/data/uploads"; // Ruta del volumen en Railway
+// ============================================================
+// CONFIGURACIÓN DE UPLOADS 
+// ============================================================
+string uploadPath;
 
-// Para desarrollo local, usa una ruta relativa
-if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RAILWAY_ENVIRONMENT")))
+// Detectar si estamos en Railway (por la variable de entorno o por la existencia de la carpeta)
+var isRailway = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RAILWAY_GIT_REPO_NAME"))
+                || Directory.Exists("/app/data/uploads");
+
+if (isRailway)
 {
+    // En Railway, usar el volumen montado
+    uploadPath = "/app/data/uploads";
+}
+else
+{
+    // En desarrollo local
     uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
 }
 
-if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RAILWAY_GIT_REPO_NAME")))
-{
-    // Desarrollo local
-    uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
-}
-
+// Crear la carpeta si no existe
 if (!Directory.Exists(uploadPath))
     Directory.CreateDirectory(uploadPath);
 
-// Configurar StaticFileOptions para servir archivos desde la ruta correcta
+// Configurar archivos estáticos
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(uploadPath),
     RequestPath = "/uploads"
 });
+
+// ============================================================
+// CONFIGURACIÓN DEL PIPELINE
+// ============================================================
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
@@ -84,12 +90,18 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Solo usar HTTPS redirection en desarrollo (Railway maneja SSL externamente)
+if (!isRailway)
+{
+    app.UseHttpsRedirection();
+}
 
-app.UseAuthentication(); // Add this line
-app.UseAuthorization();  // Add this line
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 
