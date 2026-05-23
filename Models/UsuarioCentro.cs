@@ -1,9 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Balance.API.Models
 {
     [Table("usuario_centro")]
+    [PrimaryKey(nameof(IdUsuario), nameof(IdCentro), nameof(IdRol))]
     public class UsuarioCentro
     {
         [Column("id_usuario")]
