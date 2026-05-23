@@ -79,8 +79,7 @@ namespace Balance.API.Controllers
                     Ape2 = dto.Ape2,
                     Email = dto.Email,
                     PasswordHash = ScramHasher.HashPassword(dto.Password),  // ← SCRAM
-                    FechaRegistro = DateTime.UtcNow,
-                    Activo = true
+                    FechaRegistro = DateTime.UtcNow
                 };
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
@@ -197,10 +196,10 @@ namespace Balance.API.Controllers
                     return Unauthorized(new { mensaje = "Credenciales incorrectas" });
                 }
 
-                if (!usuario.Activo)
-                {
-                    return Unauthorized(new { mensaje = "Cuenta desactivada. Contacta con el administrador." });
-                }
+                //if (!usuario.Activo)
+                //{
+                  //  return Unauthorized(new { mensaje = "Cuenta desactivada. Contacta con el administrador." });
+                //}
 
                 // Obtener roles del usuario
                 var roles = await _context.UsuarioCentros
