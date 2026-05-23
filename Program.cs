@@ -3,6 +3,7 @@ using Balance.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -48,6 +49,25 @@ builder.Services.AddAuthentication(options =>
 });
 
 var app = builder.Build();
+
+//Recursos
+var uploadPath = "/app/data/uploads"; // Ruta del volumen en Railway
+
+// Para desarrollo local, usa una ruta relativa
+if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RAILWAY_ENVIRONMENT")))
+{
+    uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+}
+
+if (!Directory.Exists(uploadPath))
+    Directory.CreateDirectory(uploadPath);
+
+// Configurar StaticFileOptions para servir archivos desde la ruta correcta
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadPath),
+    RequestPath = "/uploads"
+});
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {

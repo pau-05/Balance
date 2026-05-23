@@ -19,6 +19,6 @@ namespace Balance.API.Data
         //public DbSet<RolUsuario> RolUsuarios { get; set; }
         public DbSet<Usuario> Usuarios { get; set; }
         public DbSet<UsuarioCentro> UsuarioCentros { get; set; }
-        //public DbSet<Psicologo> Psicologos { get; set; }
+        public DbSet<Recurso> Recursos { get; set; }
     }
 }
