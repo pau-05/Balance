@@ -28,9 +28,6 @@ namespace Balance.API.Models
         [Column("fecha_registro")]
         public DateTime FechaRegistro { get; set; } = DateTime.UtcNow;
 
-        [Column("activo")]
-        public bool Activo { get; set; } = true;
-
         [Column("fecha_baja")]
         public DateTime? FechaBaja { get; set; }
 
