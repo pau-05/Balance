@@ -1,6 +1,7 @@
 ﻿using Balance.API.Data;
 using Balance.API.DTO;
 using Balance.API.Models;
+using Balance.API.Services;  
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -23,39 +24,185 @@ namespace Balance.API.Controllers
             _configuration = configuration;
         }
 
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
+        // ==================== VERIFICAR CÓDIGO ====================
+        [HttpPost("verificar-codigo")]
+        public async Task<ActionResult<CodigoValidoResponseDto>> VerificarCodigo(VerificarCodigoDto dto)
         {
-            // Buscar psicólogo por Email y NumeroColegiado
-            var psicologo = await _context.Psicologos
-                .FirstOrDefaultAsync(p => p.Email == loginDto.Email && p.NumeroColegiado == loginDto.NumeroColegiado);
+            var invitacion = await _context.Invitaciones
+                .FirstOrDefaultAsync(i => i.Codigo == dto.Codigo
+                                          && i.UsadoEn == null
+                                          && i.ExpiraEn > DateTime.UtcNow
+                                          && i.Activo);
 
-            if (psicologo == null)
-                return Unauthorized(new { message = "Email o número de colegiado incorrectos" });
+            if (invitacion == null)
+                return BadRequest(new { mensaje = "Código inválido o expirado" });
 
-            // Generar token JWT
-            var token = GenerateJwtToken(psicologo);
-            return Ok(new { token, psicologoId = psicologo.Id, nombre = $"{psicologo.Nombre} {psicologo.Apellidos}" });
+            return Ok(new CodigoValidoResponseDto
+            {
+                Valido = true,
+                Email = invitacion.Email,
+                Rol = invitacion.Rol.Nombre
+            });
         }
 
-        private string GenerateJwtToken(Psicologo psicologo)
+        // ==================== PRIMER LOGIN (REGISTRO) ====================
+        [HttpPost("primer-login")]
+        public async Task<IActionResult> PrimerLogin(PrimerLoginDto dto)
+        {
+            // 1. Buscar y validar la invitación
+            var invitacion = await _context.Invitaciones
+                .FirstOrDefaultAsync(i => i.Codigo == dto.Codigo
+                                          && i.Email == dto.Email
+                                          && i.UsadoEn == null
+                                          && i.ExpiraEn > DateTime.UtcNow
+                                          && i.Activo);
+
+            if (invitacion == null)
+                return BadRequest(new { mensaje = "Código inválido o expirado. Solicita una nueva invitación." });
+
+            // 2. Verificar que el email no esté ya registrado
+            var existeUsuario = await _context.Usuarios.AnyAsync(u => u.Email == dto.Email);
+            if (existeUsuario)
+                return BadRequest(new { mensaje = "Este email ya está registrado. Inicia sesión normalmente." });
+
+            // 3. Iniciar transacción
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                // 4. Crear usuario base
+                var usuario = new Usuario
+                {
+                    Id = Guid.NewGuid(),
+                    Nombre = dto.Nombre,
+                    Ape1 = dto.Ape1,
+                    Ape2 = dto.Ape2,
+                    Email = dto.Email,
+                    PasswordHash = ScramHasher.HashPassword(dto.Password),  // ← SCRAM
+                    FechaRegistro = DateTime.UtcNow,
+                    Activo = true
+                };
+                _context.Usuarios.Add(usuario);
+                await _context.SaveChangesAsync();
+
+                // 5. Crear relación usuario-centro con el rol de la invitación
+                var usuarioCentro = new UsuarioCentro
+                {
+                    IdUsuario = usuario.Id,
+                    IdCentro = invitacion.IdCentro,
+                    IdRol = invitacion.IdRol,  // ← Usar el ID del rol
+                    Activo = true,
+                    FechaAsignacion = DateTime.UtcNow
+                };
+                _context.UsuarioCentros.Add(usuarioCentro);
+                _context.UsuarioCentros.Add(usuarioCentro);
+                await _context.SaveChangesAsync();
+
+                // 6. Crear datos específicos según el rol
+                if (invitacion.Rol.Nombre == "PACIENTE")
+                {
+                    var pacienteDatos = new Paciente
+                    {
+                        IdUsuario = usuario.Id,
+                        FechaNacimiento = dto.FechaNacimiento ?? DateTime.UtcNow.AddYears(-18),
+                        Telefono = dto.Telefono,
+                        Direccion = dto.Direccion
+                    };
+                    _context.Pacientes.Add(pacienteDatos);
+                }
+                else if (invitacion.Rol.Nombre == "PSICOLOGO")
+                {
+                    var psicologoDatos = new Psicologo
+                    {
+                        IdUsuario = usuario.Id,
+                        NumLicencia = dto.NumLicencia ?? "PENDIENTE",
+                        Especialidades = dto.Especialidades ?? Array.Empty<string>()
+                    };
+                    _context.Psicologos.Add(psicologoDatos);
+                }
+
+                await _context.SaveChangesAsync();
+
+                // 7. Marcar invitación como usada
+                invitacion.UsadoEn = DateTime.UtcNow;
+                invitacion.Activo = false;
+                await _context.SaveChangesAsync();
+
+                // 8. Confirmar transacción
+                await transaction.CommitAsync();
+
+                // 9. Generar token JWT
+                var token = GenerateJwtToken(usuario);
+
+                return Ok(new
+                {
+                    token,
+                    usuarioId = usuario.Id,
+                    nombre = $"{usuario.Nombre} {usuario.Ape1}",
+                    rol = invitacion.Rol,
+                    mensaje = "Registro completado exitosamente"
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { mensaje = $"Error interno: {ex.Message}" });
+            }
+        }
+
+        // ==================== LOGIN NORMAL ====================
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(LoginDto dto)
+        {
+            var usuario = await _context.Usuarios
+                .FirstOrDefaultAsync(u => u.Email == dto.Email);
+
+            if (usuario == null)
+                return Unauthorized(new { mensaje = "Credenciales incorrectas" });
+
+            // Verificar contraseña usando SCRAM
+            if (!ScramHasher.VerifyPassword(dto.Password, usuario.PasswordHash))
+                return Unauthorized(new { mensaje = "Credenciales incorrectas" });
+
+            if (!usuario.Activo)
+                return Unauthorized(new { mensaje = "Cuenta desactivada. Contacta con el administrador." });
+
+            // Obtener roles del usuario (join con tabla roles)
+            var roles = await _context.UsuarioCentros
+                .Where(uc => uc.IdUsuario == usuario.Id && uc.Activo)
+                .Select(uc => uc.Rol.Nombre)  // ← Obtener el nombre del rol
+                .ToListAsync();
+
+            var token = GenerateJwtToken(usuario, roles);
+            return Ok(new { token, usuarioId = usuario.Id, nombre = $"{usuario.Nombre} {usuario.Ape1}", roles });
+        }
+
+        // ==================== GENERAR TOKEN ====================
+        private string GenerateJwtToken(Usuario usuario, List<string>? roles = null)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
             var secretKey = Encoding.ASCII.GetBytes(jwtSettings["Secret"]!);
-            var tokenHandler = new JwtSecurityTokenHandler();
 
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, psicologo.Id.ToString()),
-                new Claim(ClaimTypes.Email, psicologo.Email),
-                new Claim("NumeroColegiado", psicologo.NumeroColegiado),
-                // Puedes agregar roles si los tienes
+                new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
+                new Claim(ClaimTypes.Email, usuario.Email),
+                new Claim(ClaimTypes.Name, $"{usuario.Nombre} {usuario.Ape1}")
             };
 
+            if (roles != null)
+            {
+                foreach (var rol in roles)
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, rol));
+                }
+            }
+
+            var tokenHandler = new JwtSecurityTokenHandler();
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(double.Parse(jwtSettings["ExpirationInMinutes"]!)),
+                Expires = DateTime.UtcNow.AddHours(24),
                 Issuer = jwtSettings["Issuer"],
                 Audience = jwtSettings["Audience"],
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(secretKey), SecurityAlgorithms.HmacSha256Signature)
@@ -64,5 +211,11 @@ namespace Balance.API.Controllers
             var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
+    }
+
+    public class LoginDto
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
     }
 }

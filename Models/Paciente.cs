@@ -1,24 +1,23 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json;
 
 namespace Balance.API.Models
 {
-    [Table("psicologo")]
-    public class Psicologo
+    [Table("paciente")]
+    public class Paciente
     {
         [Key]
         [Column("id_usuario")]
         public Guid IdUsuario { get; set; }
 
-        [Column("num_licencia")]
-        public string NumLicencia { get; set; } = string.Empty;
+        [Column("fecha_nacimiento")]
+        public DateTime FechaNacimiento { get; set; }
 
-        [Column("especialidades")]
-        public string[]? Especialidades { get; set; }
+        [Column("telefono")]
+        public string? Telefono { get; set; }
 
-        [Column("horario")]
-        public JsonDocument? Horario { get; set; }
+        [Column("direccion")]
+        public string? Direccion { get; set; }
 
         // Relaciones
         [ForeignKey(nameof(IdUsuario))]
