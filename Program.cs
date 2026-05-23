@@ -59,6 +59,12 @@ if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RAILWAY_ENVIRONMENT
     uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
 }
 
+if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("RAILWAY_GIT_REPO_NAME")))
+{
+    // Desarrollo local
+    uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+}
+
 if (!Directory.Exists(uploadPath))
     Directory.CreateDirectory(uploadPath);
 

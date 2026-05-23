@@ -146,5 +146,50 @@ namespace Balance.API.Controllers
 
             return Ok(new { mensaje = "Recurso eliminado" });
         }
+
+        [HttpGet("diagnostic")]
+        public IActionResult Diagnostic()
+        {
+            var results = new List<object>();
+
+            // Verificar rutas
+            var possiblePaths = new[]
+            {
+                "/app/data/uploads",
+                Path.Combine(Directory.GetCurrentDirectory(), "uploads"),
+                Path.Combine(_env.ContentRootPath, "uploads")
+            };
+
+            foreach (var path in possiblePaths)
+            {
+                var exists = Directory.Exists(path);
+                var writable = false;
+
+                if (exists)
+                {
+                    try
+                    {
+                        var testFile = Path.Combine(path, "test.txt");
+                        System.IO.File.WriteAllText(testFile, "test");
+                        System.IO.File.Delete(testFile);
+                        writable = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        writable = false;
+                    }
+                }
+
+                results.Add(new { path, exists, writable });
+            }
+
+            return Ok(new
+            {
+                environment = Environment.GetEnvironmentVariable("RAILWAY_ENVIRONMENT") ?? "local",
+                contentRootPath = _env.ContentRootPath,
+                currentDirectory = Directory.GetCurrentDirectory(),
+                paths = results
+            });
+        }
     }
 }
