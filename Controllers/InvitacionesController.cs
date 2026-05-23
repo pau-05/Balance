@@ -1,6 +1,7 @@
 ﻿using Balance.API.Data;
 using Balance.API.DTO;
 using Balance.API.Models;
+using Balance.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +27,8 @@ namespace Balance.API.Controllers
         }
 
         [HttpPost("crear")]
-        public async Task<ActionResult<InvitacionResponseDto>> CrearInvitacion(CrearInvitacionDto dto)
+        public async Task<ActionResult<InvitacionResponseDto>> CrearInvitacion(CrearInvitacionDto dto,
+            [FromServices] IEmailService emailService)
         {
             // Verificar que el centro existe
             var centro = await _context.Centros.FindAsync(dto.IdCentro);
@@ -66,7 +68,7 @@ namespace Balance.API.Controllers
             await _context.SaveChangesAsync();
 
             // TODO: Enviar email con el código
-            // await _emailService.EnviarInvitacion(invitacion.Email, invitacion.Codigo, centro.Nombre);
+            //await _emailService.EnviarInvitacion(invitacion.Email, invitacion.Codigo, centro.Nombre);
 
             return Ok(new InvitacionResponseDto
             {

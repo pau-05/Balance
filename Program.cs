@@ -15,6 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddTransient<IEmailService, EmailService>();
 
 // Register the DbContext with the PostgreSQL provider
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

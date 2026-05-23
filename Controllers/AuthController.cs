@@ -152,29 +152,74 @@ namespace Balance.API.Controllers
 
         // ==================== LOGIN NORMAL ====================
         [HttpPost("login")]
-        public async Task<IActionResult> Login(LoginDto dto)
+        public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            var usuario = await _context.Usuarios
-                .FirstOrDefaultAsync(u => u.Email == dto.Email);
+            try
+            {
+                // Log para depurar
+                Console.WriteLine($"=== LOGIN ATTEMPT ===");
+                Console.WriteLine($"Email: {dto?.Email}");
+                Console.WriteLine($"Password provided: {(string.IsNullOrEmpty(dto?.Password) ? "NO" : "YES")}");
 
-            if (usuario == null)
-                return Unauthorized(new { mensaje = "Credenciales incorrectas" });
+                if (dto == null || string.IsNullOrEmpty(dto.Email) || string.IsNullOrEmpty(dto.Password))
+                {
+                    Console.WriteLine("Error: Datos inválidos");
+                    return BadRequest(new { mensaje = "Email y contraseña son requeridos" });
+                }
 
-            // Verificar contraseña usando SCRAM
-            if (!ScramHasher.VerifyPassword(dto.Password, usuario.PasswordHash))
-                return Unauthorized(new { mensaje = "Credenciales incorrectas" });
+                var usuario = await _context.Usuarios
+                    .FirstOrDefaultAsync(u => u.Email == dto.Email);
 
-            if (!usuario.Activo)
-                return Unauthorized(new { mensaje = "Cuenta desactivada. Contacta con el administrador." });
+                if (usuario == null)
+                {
+                    Console.WriteLine($"Usuario no encontrado: {dto.Email}");
+                    return Unauthorized(new { mensaje = "Credenciales incorrectas" });
+                }
 
-            // Obtener roles del usuario (join con tabla roles)
-            var roles = await _context.UsuarioCentros
-                .Where(uc => uc.IdUsuario == usuario.Id && uc.Activo)
-                .Select(uc => uc.Rol.Nombre)  // ← Obtener el nombre del rol
-                .ToListAsync();
+                Console.WriteLine($"Usuario encontrado: {usuario.Email}");
+                Console.WriteLine($"Hash almacenado: {usuario.PasswordHash?.Substring(0, Math.Min(20, usuario.PasswordHash?.Length ?? 0))}...");
 
-            var token = GenerateJwtToken(usuario, roles);
-            return Ok(new { token, usuarioId = usuario.Id, nombre = $"{usuario.Nombre} {usuario.Ape1}", roles });
+                // Verificar contraseña
+                bool passwordValida = false;
+                try
+                {
+                    passwordValida = ScramHasher.VerifyPassword(dto.Password, usuario.PasswordHash);
+                    Console.WriteLine($"Verificación de contraseña: {(passwordValida ? "VÁLIDA" : "INVÁLIDA")}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error al verificar contraseña: {ex.Message}");
+                    passwordValida = false;
+                }
+
+                if (!passwordValida)
+                {
+                    return Unauthorized(new { mensaje = "Credenciales incorrectas" });
+                }
+
+                if (!usuario.Activo)
+                {
+                    return Unauthorized(new { mensaje = "Cuenta desactivada. Contacta con el administrador." });
+                }
+
+                // Obtener roles del usuario
+                var roles = await _context.UsuarioCentros
+                    .Where(uc => uc.IdUsuario == usuario.Id && uc.Activo)
+                    .Select(uc => uc.Rol.Nombre)
+                    .ToListAsync();
+
+                Console.WriteLine($"Roles encontrados: {string.Join(", ", roles)}");
+
+                var token = GenerateJwtToken(usuario, roles);
+
+                return Ok(new { token, usuarioId = usuario.Id, nombre = $"{usuario.Nombre} {usuario.Ape1}", roles });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR EN LOGIN: {ex.Message}");
+                Console.WriteLine($"STACK TRACE: {ex.StackTrace}");
+                return StatusCode(500, new { mensaje = $"Error interno: {ex.Message}" });
+            }
         }
 
         // ==================== GENERAR TOKEN ====================
