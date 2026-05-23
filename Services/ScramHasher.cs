@@ -1,58 +1,43 @@
-﻿using Microsoft.AspNetCore.Cryptography.KeyDerivation;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
+using System.Text;
 
 namespace Balance.API.Services
 {
-    public class ScramHasher
+    public static class ScramHasher
     {
-        private const int SaltSize = 16;      // 128 bits
-        private const int HashSize = 32;      // 256 bits
-        private const int Iterations = 10000; // Número de iteraciones
+        private const int SaltSize = 16;
+        private const int HashSize = 32;
+        private const int Iterations = 10000;
 
         public static string HashPassword(string password)
         {
-            // Generar salt aleatorio
             byte[] salt = RandomNumberGenerator.GetBytes(SaltSize);
 
-            // Generar hash usando PBKDF2 (similar a SCRAM)
-            byte[] hash = KeyDerivation.Pbkdf2(
-                password: password,
-                salt: salt,
-                prf: KeyDerivationPrf.HMACSHA256,
-                iterationCount: Iterations,
-                numBytesRequested: HashSize
-            );
+            //UTF-16
+            byte[] passwordBytes = Encoding.Unicode.GetBytes(password);
 
-            // Combinar salt + hash en un solo string (formato: salt:hash)
-            string saltBase64 = Convert.ToBase64String(salt);
-            string hashBase64 = Convert.ToBase64String(hash);
+            using var pbkdf2 = new Rfc2898DeriveBytes(passwordBytes, salt, Iterations, HashAlgorithmName.SHA256);
+            byte[] hash = pbkdf2.GetBytes(HashSize);
 
-            return $"{Iterations}:{saltBase64}:{hashBase64}";
+            return $"{Iterations}:{Convert.ToBase64String(salt)}:{Convert.ToBase64String(hash)}";
         }
 
         public static bool VerifyPassword(string password, string storedHash)
         {
-            // Dividir el storedHash en partes
             var parts = storedHash.Split(':');
-            if (parts.Length != 3)
-                return false;
+            if (parts.Length != 3) return false;
 
-            if (!int.TryParse(parts[0], out int iterations))
-                return false;
+            if (!int.TryParse(parts[0], out int iterations)) return false;
 
             byte[] salt = Convert.FromBase64String(parts[1]);
             byte[] storedHashBytes = Convert.FromBase64String(parts[2]);
 
-            // Calcular hash con los mismos parámetros
-            byte[] computedHash = KeyDerivation.Pbkdf2(
-                password: password,
-                salt: salt,
-                prf: KeyDerivationPrf.HMACSHA256,
-                iterationCount: iterations,
-                numBytesRequested: storedHashBytes.Length
-            );
+            // 🔥 Usar UTF-16 para ser compatible
+            byte[] passwordBytes = Encoding.Unicode.GetBytes(password);
 
-            // Comparar hashes de manera segura (tiempo constante)
+            using var pbkdf2 = new Rfc2898DeriveBytes(passwordBytes, salt, iterations, HashAlgorithmName.SHA256);
+            byte[] computedHash = pbkdf2.GetBytes(storedHashBytes.Length);
+
             return CryptographicOperations.FixedTimeEquals(computedHash, storedHashBytes);
         }
     }
