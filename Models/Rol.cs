@@ -10,7 +10,7 @@ namespace Balance.API.Models
         [Column("id_rol")]
         public int IdRol { get; set; }
 
-        [Column("nombre")]
+        [Column("nombre_rol")]
         public string Nombre { get; set; } = string.Empty;
 
         // Relaciones
