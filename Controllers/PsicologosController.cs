@@ -41,18 +41,18 @@ namespace Balance.API.Controllers
         [HttpPost]
         public async Task<ActionResult<Psicologo>> PostPsicologo(Psicologo psicologo)
         {
-            psicologo.Id = Guid.NewGuid();
+            psicologo.IdUsuario = Guid.NewGuid();
             _context.Psicologos.Add(psicologo);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetPsicologo), new { id = psicologo.Id }, psicologo);
+            return CreatedAtAction(nameof(GetPsicologo), new { id = psicologo.IdUsuario }, psicologo);
         }
 
         // PUT: api/Psicologos/{id}
         [HttpPut("{id}")]
         public async Task<IActionResult> PutPsicologo(Guid id, Psicologo psicologo)
         {
-            if (id != psicologo.Id)
+            if (id != psicologo.IdUsuario)
             {
                 return BadRequest();
             }
@@ -96,7 +96,7 @@ namespace Balance.API.Controllers
 
         private bool PsicologoExists(Guid id)
         {
-            return _context.Psicologos.Any(e => e.Id == id);
+            return _context.Psicologos.Any(e => e.IdUsuario == id);
         }
     }
 }

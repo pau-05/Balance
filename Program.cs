@@ -1,9 +1,10 @@
-using Microsoft.EntityFrameworkCore;
+using Balance.API.Data;
+using Balance.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Balance.API.Data;
-using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddTransient<IEmailService, EmailService>();
+//builder.Services.AddTransient<IEmailService, EmailService>();
 
 // Register the DbContext with the PostgreSQL provider
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
