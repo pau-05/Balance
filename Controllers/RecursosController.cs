@@ -30,40 +30,77 @@ namespace Balance.API.Controllers
         {
             try
             {
+                // 🔥 LOGS DE DEPURACIÓN
+                Console.WriteLine($"=== UPLOAD DEBUG ===");
+                Console.WriteLine($"File: {file?.FileName}");
+                Console.WriteLine($"File length: {file?.Length}");
+                Console.WriteLine($"Nombre: {nombre}");
+                Console.WriteLine($"Tipo: {tipo}");
+                Console.WriteLine($"User authenticated: {User.Identity?.IsAuthenticated}");
+
                 if (file == null || file.Length == 0)
+                {
+                    Console.WriteLine("ERROR: Archivo nulo o vacío");
                     return BadRequest(new { mensaje = "No se ha enviado ningún archivo" });
+                }
 
                 // Validar tipo
                 var tiposPermitidos = new[] { "PDF", "VIDEO", "ENLACE", "PLANTILLA" };
                 if (!tiposPermitidos.Contains(tipo))
+                {
+                    Console.WriteLine($"ERROR: Tipo no válido: {tipo}");
                     return BadRequest(new { mensaje = "Tipo no válido. Debe ser PDF, VIDEO, ENLACE o PLANTILLA" });
+                }
 
                 // Obtener usuario autenticado
                 var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                Console.WriteLine($"UserIdClaim: {userIdClaim}");
+
                 if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    Console.WriteLine("ERROR: Usuario no autenticado");
                     return Unauthorized();
+                }
 
                 var usuarioId = Guid.Parse(userIdClaim);
 
                 // Obtener el centro del usuario
                 var usuarioCentro = await _context.UsuarioCentros
                     .FirstOrDefaultAsync(uc => uc.IdUsuario == usuarioId && uc.Activo);
-                if (usuarioCentro == null)
-                    return BadRequest(new { mensaje = "Usuario no asociado a ningún centro" });
 
-                // 🔥 Usar la ruta del volumen directamente
-                if (!Directory.Exists(_uploadsFolder))
-                    Directory.CreateDirectory(_uploadsFolder);
+                if (usuarioCentro == null)
+                {
+                    Console.WriteLine($"ERROR: Usuario {usuarioId} no tiene centro asociado");
+                    return BadRequest(new { mensaje = "Usuario no asociado a ningún centro" });
+                }
+
+                Console.WriteLine($"Centro encontrado: {usuarioCentro.IdCentro}");
+
+                // Ruta de almacenamiento
+                var uploadsFolder = "/app/data/uploads";
+                Console.WriteLine($"Uploads folder: {uploadsFolder}");
+                Console.WriteLine($"Folder exists: {Directory.Exists(uploadsFolder)}");
+
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Console.WriteLine("Creando carpeta de uploads...");
+                    Directory.CreateDirectory(uploadsFolder);
+                }
 
                 // Generar nombre único
                 var fileExtension = Path.GetExtension(file.FileName);
                 var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
-                var filePath = Path.Combine(_uploadsFolder, uniqueFileName);
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
+                Console.WriteLine($"Saving to: {filePath}");
+
+                // Guardar archivo
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
                     await file.CopyToAsync(stream);
                 }
+
+                Console.WriteLine($"File saved successfully. Size: {new FileInfo(filePath).Length} bytes");
 
                 // Guardar en BD
                 var recurso = new Recurso
@@ -81,19 +118,22 @@ namespace Balance.API.Controllers
                 _context.Recursos.Add(recurso);
                 await _context.SaveChangesAsync();
 
+                Console.WriteLine($"Recurso guardado en BD con ID: {recurso.IdRecurso}");
+
                 return Ok(new
                 {
                     mensaje = "Archivo subido correctamente",
                     id = recurso.IdRecurso,
                     nombre = recurso.Nombre,
                     url = recurso.UrlAlmacenamiento,
-                    tipo = recurso.Tipo,
                     tamano = recurso.TamanioBytes
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { mensaje = $"Error interno: {ex.Message}", detalle = ex.StackTrace });
+                Console.WriteLine($"EXCEPCIÓN: {ex.Message}");
+                Console.WriteLine($"STACK TRACE: {ex.StackTrace}");
+                return StatusCode(500, new { mensaje = $"Error interno: {ex.Message}" });
             }
         }
 
