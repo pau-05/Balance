@@ -15,7 +15,7 @@ namespace Balance.API.DTO
         public Guid Id { get; set; }
         public string Email { get; set; } = string.Empty;
         public string Codigo { get; set; } = string.Empty;
-        public string Rol { get; set; } = string.Empty;
+        public int IdRol { get; set; }
         public DateTime ExpiraEn { get; set; }
         public bool Usada { get; set; }
     }

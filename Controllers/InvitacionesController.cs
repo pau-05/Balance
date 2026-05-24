@@ -5,6 +5,8 @@ using Balance.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel;
+using System.Security.Claims;
 
 namespace Balance.API.Controllers
 {
@@ -27,58 +29,71 @@ namespace Balance.API.Controllers
         }
 
         [HttpPost("crear")]
-        public async Task<ActionResult<InvitacionResponseDto>> CrearInvitacion(CrearInvitacionDto dto,
-            [FromServices] IEmailService emailService)
+        [Authorize(Roles = "ADMIN")] // Solo administradores
+        public async Task<ActionResult<InvitacionResponseDto>> CrearInvitacion(CrearInvitacionDto dto)
         {
-            // Verificar que el centro existe
-            var centro = await _context.Centros.FindAsync(dto.IdCentro);
-            if (centro == null)
-                return BadRequest("El centro no existe");
-
-            // Validar que el rol existe en la tabla roles
-            var rol = await _context.Roles.FindAsync((int)dto.Rol);
-            if (rol == null)
-                return BadRequest("El rol especificado no existe");
-
-            // Obtener el ID del administrador que crea (del token)
-            var adminId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (adminId == null)
-                return Unauthorized();
-
-            // Generar código único (asegurar que no existe ya)
-            string codigo;
-            do
+            try
             {
-                codigo = GenerarCodigoUnico();
-            } while (await _context.Invitaciones.AnyAsync(i => i.Codigo == codigo && i.UsadoEn == null));
+                int idRol = (int)dto.Rol;
+                // Validar que el rol existe (1=ADMIN, 2=PSICOLOGO, 3=PACIENTE)
+                var rol = await _context.Roles.FindAsync(dto.Rol);
+                if (rol == null)
+                    return BadRequest(new { mensaje = "El rol especificado no existe" });
 
-            var invitacion = new Invitacion
+                // Obtener el centro del admin autenticado
+                var adminIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(adminIdClaim))
+                    return Unauthorized();
+
+                var adminId = Guid.Parse(adminIdClaim);
+
+                var adminCentro = await _context.UsuarioCentros
+                    .FirstOrDefaultAsync(uc => uc.IdUsuario == adminId && uc.Activo);
+
+                if (adminCentro == null)
+                    return BadRequest(new { mensaje = "Admin no tiene centro asociado" });
+
+                // Generar código único de 6 dígitos
+                string codigo;
+                var random = new Random();
+                do
+                {
+                    codigo = random.Next(100000, 999999).ToString();
+                } while (await _context.Invitaciones.AnyAsync(i => i.Codigo == codigo && i.UsadoEn == null));
+
+                // Crear invitación (sin contraseña, sin datos personales)
+                var invitacion = new Invitacion
+                {
+                    Id = Guid.NewGuid(),
+                    Email = dto.Email,
+                    Codigo = codigo,
+                    IdRol = idRol,
+                    IdCentro = adminCentro.IdCentro,
+                    CreadoPor = adminId,
+                    CreadoEn = DateTime.UtcNow,
+                    ExpiraEn = DateTime.UtcNow.AddDays(dto.DiasExpiracion),
+                    Activo = true
+                };
+
+                _context.Invitaciones.Add(invitacion);
+                await _context.SaveChangesAsync();
+
+                // TODO: Enviar email con el código
+                // await _emailService.EnviarInvitacion(dto.Email, codigo, rol.Nombre);
+
+                return Ok(new InvitacionResponseDto
+                {
+                    Id = invitacion.Id,
+                    Email = invitacion.Email,
+                    Codigo = invitacion.Codigo,
+                    IdRol = invitacion.IdRol,
+                    ExpiraEn = invitacion.ExpiraEn
+                });
+            }
+            catch (Exception ex)
             {
-                Id = Guid.NewGuid(),
-                Email = dto.Email,
-                Codigo = codigo,
-                IdRol = (int)dto.Rol,
-                IdCentro = dto.IdCentro,
-                CreadoPor = Guid.Parse(adminId),
-                ExpiraEn = DateTime.UtcNow.AddDays(dto.DiasExpiracion),
-                Activo = true
-            };
-
-            _context.Invitaciones.Add(invitacion);
-            await _context.SaveChangesAsync();
-
-            // TODO: Enviar email con el código
-            //await _emailService.EnviarInvitacion(invitacion.Email, invitacion.Codigo, centro.Nombre);
-
-            return Ok(new InvitacionResponseDto
-            {
-                Id = invitacion.Id,
-                Email = invitacion.Email,
-                Codigo = invitacion.Codigo,
-                Rol = invitacion.Rol.Nombre,
-                ExpiraEn = invitacion.ExpiraEn,
-                Usada = false
-            });
+                return StatusCode(500, new { mensaje = $"Error interno: {ex.Message}" });
+            }
         }
 
         [HttpGet("listar")]
@@ -96,7 +111,7 @@ namespace Balance.API.Controllers
                     Id = i.Id,
                     Email = i.Email,
                     Codigo = i.Codigo,
-                    Rol = i.Rol.Nombre,
+                    IdRol = i.IdRol,
                     ExpiraEn = i.ExpiraEn,
                     Usada = i.UsadoEn != null
                 })
