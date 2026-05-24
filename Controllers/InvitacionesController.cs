@@ -57,10 +57,9 @@ namespace Balance.API.Controllers
 
                 // Generar código único de 6 dígitos
                 string codigo;
-                var random = new Random();
                 do
                 {
-                    codigo = random.Next(100000, 999999).ToString();
+                    codigo = GenerarCodigoUnico();
                 } while (await _context.Invitaciones.AnyAsync(i => i.Codigo == codigo && i.UsadoEn == null));
 
                 // Crear invitación

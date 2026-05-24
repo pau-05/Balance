@@ -57,7 +57,7 @@ namespace Balance.API.Controllers
                 Console.WriteLine($"Email: {dto.Email}");
                 Console.WriteLine($"Nombre: {dto.Nombre}");
                 Console.WriteLine($"Ape1: {dto.Ape1}");
-                Console.WriteLine($"Rol esperado: {dto.Rol}");
+                //Console.WriteLine($"Rol esperado: {dto.Rol}");
 
                 // 1. Buscar y validar la invitación
                 var invitacion = await _context.Invitaciones
@@ -98,8 +98,7 @@ namespace Balance.API.Controllers
                         Ape2 = dto.Ape2,
                         Email = dto.Email,
                         PasswordHash = ScramHasher.HashPassword(dto.Password),
-                        FechaRegistro = DateTime.UtcNow,
-                        Activo = true
+                        FechaRegistro = DateTime.UtcNow
                     };
                     _context.Usuarios.Add(usuario);
                     await _context.SaveChangesAsync();
