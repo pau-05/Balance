@@ -29,16 +29,18 @@ namespace Balance.API.Controllers
         }
 
         [HttpPost("crear")]
-        [Authorize(Roles = "ADMIN")] // Solo administradores
+        [Authorize(Roles = "ADMIN")]
         public async Task<ActionResult<InvitacionResponseDto>> CrearInvitacion(CrearInvitacionDto dto)
         {
             try
             {
-                int idRol = (int)dto.Rol;
-                // Validar que el rol existe (1=ADMIN, 2=PSICOLOGO, 3=PACIENTE)
+                // dto.Rol ya es un int (1,2,3)
+                int idRol = dto.Rol;
+
+                // Validar que el rol existe
                 var rol = await _context.Roles.FindAsync(idRol);
                 if (rol == null)
-                    return BadRequest(new { mensaje = "El rol especificado no existe" });
+                    return BadRequest(new { mensaje = $"El rol con ID {idRol} no existe" });
 
                 // Obtener el centro del admin autenticado
                 var adminIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -61,7 +63,7 @@ namespace Balance.API.Controllers
                     codigo = random.Next(100000, 999999).ToString();
                 } while (await _context.Invitaciones.AnyAsync(i => i.Codigo == codigo && i.UsadoEn == null));
 
-                // Crear invitación (sin contraseña, sin datos personales)
+                // Crear invitación
                 var invitacion = new Invitacion
                 {
                     Id = Guid.NewGuid(),
@@ -77,9 +79,6 @@ namespace Balance.API.Controllers
 
                 _context.Invitaciones.Add(invitacion);
                 await _context.SaveChangesAsync();
-
-                // TODO: Enviar email con el código
-                // await _emailService.EnviarInvitacion(dto.Email, codigo, rol.Nombre);
 
                 return Ok(new InvitacionResponseDto
                 {
