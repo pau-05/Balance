@@ -36,7 +36,7 @@ namespace Balance.API.Controllers
             {
                 int idRol = (int)dto.Rol;
                 // Validar que el rol existe (1=ADMIN, 2=PSICOLOGO, 3=PACIENTE)
-                var rol = await _context.Roles.FindAsync(dto.Rol);
+                var rol = await _context.Roles.FindAsync(idRol);
                 if (rol == null)
                     return BadRequest(new { mensaje = "El rol especificado no existe" });
 
