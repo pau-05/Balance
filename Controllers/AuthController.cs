@@ -99,8 +99,7 @@ namespace Balance.API.Controllers
                     Ape2 = dto.Ape2,
                     Email = dto.Email,
                     PasswordHash = ScramHasher.HashPassword(dto.Password),
-                    FechaRegistro = DateTime.UtcNow,
-                    Activo = true
+                    FechaRegistro = DateTime.UtcNow
                 };
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
