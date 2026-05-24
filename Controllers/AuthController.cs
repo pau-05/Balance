@@ -48,18 +48,22 @@ namespace Balance.API.Controllers
 
         // ==================== PRIMER LOGIN (REGISTRO) ====================
         [HttpPost("primer-login")]
-        public async Task<IActionResult> PrimerLogin(PrimerLoginDto dto)
+        public async Task<IActionResult> PrimerLogin([FromBody] PrimerLoginDto dto)
         {
+            Console.WriteLine($"=== PRIMER LOGIN INICIADO ===");
+            Console.WriteLine($"Código: {dto?.Codigo}");
+            Console.WriteLine($"Email: {dto?.Email}");
+
+            if (dto == null)
+            {
+                Console.WriteLine("ERROR: DTO es null");
+                return BadRequest(new { mensaje = "Datos inválidos" });
+            }
+
             try
             {
-                Console.WriteLine("=== PRIMER LOGIN ===");
-                Console.WriteLine($"Código: {dto.Codigo}");
-                Console.WriteLine($"Email: {dto.Email}");
-                Console.WriteLine($"Nombre: {dto.Nombre}");
-                Console.WriteLine($"Ape1: {dto.Ape1}");
-                //Console.WriteLine($"Rol esperado: {dto.Rol}");
-
-                // 1. Buscar y validar la invitación
+                // 1. Buscar invitación
+                Console.WriteLine("Buscando invitación...");
                 var invitacion = await _context.Invitaciones
                     .Include(i => i.Rol)
                     .FirstOrDefaultAsync(i => i.Codigo == dto.Codigo
@@ -70,115 +74,108 @@ namespace Balance.API.Controllers
 
                 if (invitacion == null)
                 {
-                    Console.WriteLine("ERROR: Invitación no encontrada o inválida");
-                    return BadRequest(new { mensaje = "Código inválido o expirado. Solicita una nueva invitación." });
+                    Console.WriteLine("ERROR: Invitación no encontrada");
+                    return BadRequest(new { mensaje = "Código inválido o expirado" });
                 }
 
-                Console.WriteLine($"Invitación encontrada. Rol: {invitacion.Rol?.Nombre}, Centro: {invitacion.IdCentro}");
+                Console.WriteLine($"Invitación encontrada. Rol: {invitacion.Rol?.Nombre}");
 
-                // 2. Verificar que el email no esté ya registrado
+                // 2. Verificar email no existente
+                Console.WriteLine("Verificando si email ya existe...");
                 var existeUsuario = await _context.Usuarios.AnyAsync(u => u.Email == dto.Email);
                 if (existeUsuario)
                 {
-                    Console.WriteLine($"ERROR: Email ya registrado: {dto.Email}");
-                    return BadRequest(new { mensaje = "Este email ya está registrado. Inicia sesión normalmente." });
+                    Console.WriteLine("ERROR: Email ya registrado");
+                    return BadRequest(new { mensaje = "Este email ya está registrado" });
                 }
 
-                // 3. Iniciar transacción
-                using var transaction = await _context.Database.BeginTransactionAsync();
-
-                try
+                // 3. Crear usuario
+                Console.WriteLine("Creando usuario...");
+                var usuario = new Usuario
                 {
-                    // 4. Crear usuario base
-                    var usuario = new Usuario
-                    {
-                        Id = Guid.NewGuid(),
-                        Nombre = dto.Nombre,
-                        Ape1 = dto.Ape1,
-                        Ape2 = dto.Ape2,
-                        Email = dto.Email,
-                        PasswordHash = ScramHasher.HashPassword(dto.Password),
-                        FechaRegistro = DateTime.UtcNow
-                    };
-                    _context.Usuarios.Add(usuario);
-                    await _context.SaveChangesAsync();
-                    Console.WriteLine($"Usuario creado: {usuario.Id}");
+                    Id = Guid.NewGuid(),
+                    Nombre = dto.Nombre ?? "Sin nombre",
+                    Ape1 = dto.Ape1 ?? "Sin apellido",
+                    Ape2 = dto.Ape2,
+                    Email = dto.Email,
+                    PasswordHash = ScramHasher.HashPassword(dto.Password),
+                    FechaRegistro = DateTime.UtcNow,
+                    Activo = true
+                };
+                _context.Usuarios.Add(usuario);
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"Usuario creado con ID: {usuario.Id}");
 
-                    // 5. Crear relación usuario-centro
-                    var usuarioCentro = new UsuarioCentro
+                // 4. Crear relación usuario-centro
+                Console.WriteLine("Creando relación usuario-centro...");
+                var usuarioCentro = new UsuarioCentro
+                {
+                    IdUsuario = usuario.Id,
+                    IdCentro = invitacion.IdCentro,
+                    IdRol = invitacion.IdRol,
+                    Activo = true,
+                    FechaAsignacion = DateTime.UtcNow
+                };
+                _context.UsuarioCentros.Add(usuarioCentro);
+                await _context.SaveChangesAsync();
+                Console.WriteLine("Relación usuario-centro creada");
+
+                // 5. Crear datos específicos
+                Console.WriteLine($"Creando datos específicos para rol: {invitacion.Rol?.Nombre}");
+                if (invitacion.Rol?.Nombre == "PACIENTE")
+                {
+                    var pacienteDatos = new Paciente
                     {
                         IdUsuario = usuario.Id,
-                        IdCentro = invitacion.IdCentro,
-                        IdRol = invitacion.IdRol,
-                        Activo = true,
-                        FechaAsignacion = DateTime.UtcNow
+                        FechaNacimiento = dto.FechaNacimiento ?? DateTime.UtcNow.AddYears(-18),
+                        Telefono = dto.Telefono,
+                        Direccion = dto.Direccion
                     };
-                    _context.UsuarioCentros.Add(usuarioCentro);
-                    await _context.SaveChangesAsync();
-                    Console.WriteLine($"Relación usuario-centro creada");
-
-                    // 6. Crear datos específicos según el rol
-                    if (invitacion.Rol.Nombre == "PACIENTE")
-                    {
-                        var pacienteDatos = new Paciente
-                        {
-                            IdUsuario = usuario.Id,
-                            FechaNacimiento = dto.FechaNacimiento ?? DateTime.UtcNow.AddYears(-18),
-                            Telefono = dto.Telefono,
-                            Direccion = dto.Direccion
-                        };
-                        _context.Pacientes.Add(pacienteDatos);
-                        Console.WriteLine("Datos de paciente agregados");
-                    }
-                    else if (invitacion.Rol.Nombre == "PSICOLOGO")
-                    {
-                        var psicologoDatos = new Psicologo
-                        {
-                            IdUsuario = usuario.Id,
-                            NumLicencia = dto.NumLicencia ?? "PENDIENTE",
-                            Especialidades = dto.Especialidades ?? Array.Empty<string>()
-                        };
-                        _context.Psicologos.Add(psicologoDatos);
-                        Console.WriteLine("Datos de psicólogo agregados");
-                    }
-
-                    await _context.SaveChangesAsync();
-
-                    // 7. Marcar invitación como usada
-                    invitacion.UsadoEn = DateTime.UtcNow;
-                    invitacion.Activo = false;
-                    await _context.SaveChangesAsync();
-                    Console.WriteLine("Invitación marcada como usada");
-
-                    // 8. Confirmar transacción
-                    await transaction.CommitAsync();
-                    Console.WriteLine("Transacción completada exitosamente");
-
-                    // 9. Generar token JWT
-                    var token = GenerateJwtToken(usuario);
-                    Console.WriteLine("Token generado");
-
-                    return Ok(new
-                    {
-                        token,
-                        usuarioId = usuario.Id,
-                        nombre = $"{usuario.Nombre} {usuario.Ape1}",
-                        rol = invitacion.Rol.Nombre,
-                        mensaje = "Registro completado exitosamente"
-                    });
+                    _context.Pacientes.Add(pacienteDatos);
                 }
-                catch (Exception ex)
+                else if (invitacion.Rol?.Nombre == "PSICOLOGO")
                 {
-                    await transaction.RollbackAsync();
-                    Console.WriteLine($"ERROR EN TRANSACCIÓN: {ex.Message}");
-                    Console.WriteLine($"STACK TRACE: {ex.StackTrace}");
-                    throw;
+                    var psicologoDatos = new Psicologo
+                    {
+                        IdUsuario = usuario.Id,
+                        NumLicencia = dto.NumLicencia ?? "PENDIENTE",
+                        Especialidades = dto.Especialidades ?? Array.Empty<string>()
+                    };
+                    _context.Psicologos.Add(psicologoDatos);
                 }
+                await _context.SaveChangesAsync();
+                Console.WriteLine("Datos específicos guardados");
+
+                // 6. Marcar invitación como usada
+                Console.WriteLine("Marcando invitación como usada...");
+                invitacion.UsadoEn = DateTime.UtcNow;
+                invitacion.Activo = false;
+                await _context.SaveChangesAsync();
+
+                // 7. Generar token
+                Console.WriteLine("Generando token...");
+                var token = GenerateJwtToken(usuario);
+
+                Console.WriteLine("=== PRIMER LOGIN EXITOSO ===");
+                return Ok(new
+                {
+                    token,
+                    usuarioId = usuario.Id,
+                    nombre = $"{usuario.Nombre} {usuario.Ape1}",
+                    rol = invitacion.Rol?.Nombre,
+                    mensaje = "Registro completado exitosamente"
+                });
+            }
+            catch (DbUpdateException dbEx)
+            {
+                Console.WriteLine($"ERROR DB: {dbEx.Message}");
+                Console.WriteLine($"Inner: {dbEx.InnerException?.Message}");
+                return StatusCode(500, new { mensaje = $"Error de base de datos: {dbEx.InnerException?.Message ?? dbEx.Message}" });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR EN PRIMER LOGIN: {ex.Message}");
-                Console.WriteLine($"STACK TRACE: {ex.StackTrace}");
+                Console.WriteLine($"ERROR GENERAL: {ex.Message}");
+                Console.WriteLine($"STACK: {ex.StackTrace}");
                 return StatusCode(500, new { mensaje = $"Error interno: {ex.Message}" });
             }
         }
