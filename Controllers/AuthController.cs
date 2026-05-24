@@ -29,6 +29,7 @@ namespace Balance.API.Controllers
         public async Task<ActionResult<CodigoValidoResponseDto>> VerificarCodigo(VerificarCodigoDto dto)
         {
             var invitacion = await _context.Invitaciones
+                .Include(i => i.Rol)
                 .FirstOrDefaultAsync(i => i.Codigo == dto.Codigo
                                           && i.UsadoEn == null
                                           && i.ExpiraEn > DateTime.UtcNow
