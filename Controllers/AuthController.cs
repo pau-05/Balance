@@ -37,7 +37,10 @@ namespace Balance.API.Controllers
 
             if (invitacion == null)
                 return BadRequest(new { mensaje = "Código inválido o expirado" });
-
+            Console.WriteLine($"ID Rol en invitación: {invitacion.IdRol}");
+            Console.WriteLine($"Rol cargado: {invitacion.Rol != null}");
+            Console.WriteLine($"Nombre del rol: {invitacion.Rol?.Nombre}");
+            Console.WriteLine($"Email asociado: {invitacion.Email}");
             return Ok(new CodigoValidoResponseDto
             {
                 Valido = true,
@@ -123,10 +126,24 @@ namespace Balance.API.Controllers
                 Console.WriteLine($"Creando datos específicos para rol: {invitacion.Rol?.Nombre}");
                 if (invitacion.Rol?.Nombre == "PACIENTE")
                 {
+                    // Asegurar que la fecha es UTC
+                    DateTime fechaNacimiento;
+                    if (dto.FechaNacimiento.HasValue)
+                    {
+                        fechaNacimiento = dto.FechaNacimiento.Value;
+                        if (fechaNacimiento.Kind != DateTimeKind.Utc)
+                        {
+                            fechaNacimiento = DateTime.SpecifyKind(fechaNacimiento, DateTimeKind.Utc);
+                        }
+                    }
+                    else
+                    {
+                        fechaNacimiento = DateTime.UtcNow.AddYears(-18);
+                    }
                     var pacienteDatos = new Paciente
                     {
                         IdUsuario = usuario.Id,
-                        FechaNacimiento = dto.FechaNacimiento ?? DateTime.UtcNow.AddYears(-18),
+                        FechaNacimiento = fechaNacimiento,
                         Telefono = dto.Telefono,
                         Direccion = dto.Direccion
                     };
