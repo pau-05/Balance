@@ -25,6 +25,11 @@ namespace Balance.API.Services
         {
             try
             {
+                //LOGS PARA DEPURAR
+                _logger.LogInformation($"=== ENVIANDO EMAIL ===");
+                _logger.LogInformation($"destinatario: '{destinatario}'");
+                _logger.LogInformation($"codigo: '{codigo}'");
+                _logger.LogInformation($"centroNombre: '{centroNombre}'");
                 // Validaciones iniciales
                 if (string.IsNullOrEmpty(destinatario))
                 {
