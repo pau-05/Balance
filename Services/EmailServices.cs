@@ -30,7 +30,7 @@ namespace Balance.API.Services
                 var htmlBody = $@"
                     <h1>Bienvenido a Balance Terapéutico</h1>
                     <p>Has sido invitado a unirte al centro <strong>{centroNombre}</strong>.</p>
-                    <p>Tu código de invitación es:</p>
+                    <p>Tu código de invitación es:{codigo}</p>
                     <h2 style='font-size: 32px; letter-spacing: 5px; background: #f0f0f0; padding: 10px; text-align: center;'>{codigo}</h2>
                     <p>Este código expira en 7 días.</p>
                     <p>Para completar tu registro, descarga la app Balance e ingresa este código.</p>

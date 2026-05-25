@@ -16,11 +16,18 @@ namespace Balance.API.Controllers
     public class InvitacionesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IEmailService _emailService;
+        private readonly ILogger<InvitacionesController> _logger;
         private readonly Random _random = new Random();
 
-        public InvitacionesController(ApplicationDbContext context)
+        public InvitacionesController(
+        ApplicationDbContext context,
+        IEmailService emailService,
+        ILogger<InvitacionesController> logger)
         {
             _context = context;
+            _emailService = emailService;
+            _logger = logger;
         }
 
         private string GenerarCodigoUnico()
@@ -55,6 +62,9 @@ namespace Balance.API.Controllers
                 if (adminCentro == null)
                     return BadRequest(new { mensaje = "Admin no tiene centro asociado" });
 
+                var centro = await _context.Centros.FindAsync(adminCentro.IdCentro);
+                string centroNombre = centro?.Nombre ?? "Centro Terapéutico";
+
                 // Generar código único de 6 dígitos
                 string codigo;
                 do
@@ -78,6 +88,17 @@ namespace Balance.API.Controllers
 
                 _context.Invitaciones.Add(invitacion);
                 await _context.SaveChangesAsync();
+
+                bool emailEnviado = await _emailService.EnviarInvitacionAsync(
+                    dto.Email,
+                    codigo,
+                    centroNombre
+                );
+
+                if (!emailEnviado)
+                {
+                    _logger.LogWarning($"No se pudo enviar email a {dto.Email}. Código: {codigo}");
+                }
 
                 return Ok(new InvitacionResponseDto
                 {
