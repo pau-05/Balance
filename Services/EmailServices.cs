@@ -25,6 +25,60 @@ namespace Balance.API.Services
         {
             try
             {
+                // Validaciones iniciales
+                if (string.IsNullOrEmpty(destinatario))
+                {
+                    _logger.LogError("El destinatario es nulo o vacío");
+                    return false;
+                }
+
+                // Leer configuración con valores por defecto
+                var smtpServer = _configuration["EmailSettings:SmtpServer"];
+                var smtpPortStr = _configuration["EmailSettings:SmtpPort"];
+                var senderEmail = _configuration["EmailSettings:SenderEmail"];
+                var senderName = _configuration["EmailSettings:SenderName"];
+                var password = _configuration["EmailSettings:Password"];
+                var useSSLStr = _configuration["EmailSettings:UseSSL"];
+
+                //Validar que no falte configuración
+                if (string.IsNullOrEmpty(smtpServer))
+                {
+                    _logger.LogError("EmailSettings:SmtpServer no está configurado");
+                    return false;
+                }
+
+                if (string.IsNullOrEmpty(senderEmail))
+                {
+                    _logger.LogError("EmailSettings:SenderEmail no está configurado");
+                    return false;
+                }
+
+                if (string.IsNullOrEmpty(password))
+                {
+                    _logger.LogError("EmailSettings:Password no está configurado");
+                    return false;
+                }
+
+                int smtpPort = 587;
+                if (!string.IsNullOrEmpty(smtpPortStr))
+                {
+                    int.TryParse(smtpPortStr, out smtpPort);
+                }
+
+                bool useSSL = true;
+                if (!string.IsNullOrEmpty(useSSLStr))
+                {
+                    bool.TryParse(useSSLStr, out useSSL);
+                }
+
+                // Usar nombre por defecto si no está configurado
+                if (string.IsNullOrEmpty(senderName))
+                {
+                    senderName = "Balance Terapéutico";
+                }
+
+                _logger.LogInformation($"Configuración SMTP: Server={smtpServer}, Port={smtpPort}, Sender={senderEmail}, SSL={useSSL}");
+
                 var smtpSettings = _configuration.GetSection("SmtpSettings");
                 var subject = $"Invitación a Balance Terapéutico - {centroNombre}";
                 var htmlBody = $@"
