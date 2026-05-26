@@ -5,7 +5,7 @@ namespace Balance.API.Services
 {
     public interface IEmailService
     {
-        Task<bool> EnviarInvitacionAsync(string destinatario, string codigo, string rol, string centroNombre);
+        Task<bool> EnviarInvitacionAsync(string destinatario, string codigo, string centroNombre);
     }
 
     public class EmailService : IEmailService
@@ -21,7 +21,7 @@ namespace Balance.API.Services
             _httpClient = new HttpClient();
         }
 
-        public async Task<bool> EnviarInvitacionAsync(string destinatario, string codigo, string rol, string centroNombre)
+        public async Task<bool> EnviarInvitacionAsync(string destinatario, string codigo, string centroNombre)
         {
             try
             {
