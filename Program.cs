@@ -1,4 +1,4 @@
-using Balance.API.Data;
+ï»¿using Balance.API.Data;
 using Balance.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -10,7 +10,11 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = null;  // â† PascalCase
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -48,7 +52,7 @@ builder.Services.AddAuthentication(options =>
 var app = builder.Build();
 
 // ============================================================
-// CONFIGURACIÓN DE UPLOADS 
+// CONFIGURACIÃ“N DE UPLOADS 
 // ============================================================
 string uploadPath;
 
@@ -71,7 +75,7 @@ else
 if (!Directory.Exists(uploadPath))
     Directory.CreateDirectory(uploadPath);
 
-// Configurar archivos estáticos
+// Configurar archivos estÃ¡ticos
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(uploadPath),
@@ -79,7 +83,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 // ============================================================
-// CONFIGURACIÓN DEL PIPELINE
+// CONFIGURACIÃ“N DEL PIPELINE
 // ============================================================
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions

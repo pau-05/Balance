@@ -178,7 +178,7 @@ namespace Balance.API.Controllers
             if (recurso.SubidoPor != usuarioId && !esAdmin)
                 return Forbid();
 
-            // 🔥 Usar la misma ruta consistente
+            //Usar la misma ruta consistente
             var filePath = Path.Combine(_uploadsFolder, recurso.UrlAlmacenamiento.TrimStart('/'));
 
             if (System.IO.File.Exists(filePath))
