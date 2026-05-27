@@ -139,20 +139,15 @@ namespace Balance.API.Controllers
         }
 
         //Obtener un psicologo
+        //Obtener un psicologo
         [HttpGet("psicologo/{id}")]
         public async Task<IActionResult> GetPsicologo(Guid id)
         {
             var psicologo = await _context.Psicologos.FindAsync(id);
             if (psicologo == null) return NotFound();
 
-            //Si Horario es null, pasar null al convertidor
-            string horarioTexto = "";
-            if (psicologo.Horario != null)
-            {
-                // Convertir el JsonDocument a string de forma simple
-                var jsonString = JsonSerializer.Serialize(psicologo.Horario);
-                horarioTexto = ConvertidorJsonAString.ConvertirJsonAHorario(jsonString);
-            }
+            //Tranforma de Json Document a String
+            var horarioTexto = ConvertidorJsonAString.ConvertirJsonAString(psicologo.Horario);
 
             return Ok(new
             {
