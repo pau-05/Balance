@@ -24,10 +24,9 @@ namespace Balance.API.Converters
         }
 
         // Helper para convertir JSON a texto (para mostrar en el frontend)
-        public static string ConvertirJsonAHorario(string horarioJson)
+        public static string ConvertirJsonADocumentoTexto(JsonDocument? horarioJson)
         {
-            if (string.IsNullOrEmpty(horarioJson))
-                return "";
+            if (horarioJson == null) return "";
 
             try
             {
