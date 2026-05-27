@@ -145,14 +145,20 @@ namespace Balance.API.Controllers
             var psicologo = await _context.Psicologos.FindAsync(id);
             if (psicologo == null) return NotFound();
 
-            // 🔥 Convertir JSON a texto para mostrar en el frontend
-            var horarioTexto = ConvertidorJsonAString.ConvertirJsonAHorario(psicologo.Horario?.RootElement.ToString() ?? "{}");
+            // 🔥 Si Horario es null, pasar null al convertidor
+            string horarioTexto = "";
+            if (psicologo.Horario != null)
+            {
+                // Convertir el JsonDocument a string de forma simple
+                var jsonString = JsonSerializer.Serialize(psicologo.Horario);
+                horarioTexto = ConvertidorJsonAString.ConvertirJsonAHorario(jsonString);
+            }
 
             return Ok(new
             {
                 psicologo.IdUsuario,
                 psicologo.NumLicencia,
-                HorarioTexto = horarioTexto  // ← Enviamos como texto plano
+                HorarioTexto = horarioTexto
             });
         }
     }
