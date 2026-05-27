@@ -139,7 +139,6 @@ namespace Balance.API.Controllers
         }
 
         //Obtener un psicologo
-        //Obtener un psicologo
         [HttpGet("psicologo/{id}")]
         public async Task<IActionResult> GetPsicologo(Guid id)
         {
@@ -148,12 +147,13 @@ namespace Balance.API.Controllers
 
             //Tranforma de Json Document a String
             var horarioTexto = ConvertidorJsonAString.ConvertirJsonAString(psicologo.Horario);
+            Console.WriteLine($"HorarioTexto generado: '{horarioTexto}'");
 
             return Ok(new
             {
                 psicologo.IdUsuario,
                 psicologo.NumLicencia,
-                HorarioTexto = horarioTexto
+                Horario = horarioTexto
             });
         }
     }
