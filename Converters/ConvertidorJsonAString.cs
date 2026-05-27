@@ -23,20 +23,30 @@ namespace Balance.API.Converters
             return JsonSerializer.Serialize(dict);
         }
 
-        // Helper para convertir JSON a texto (para mostrar en el frontend)
+        //Convertir JSON a texto (para mostrar en el frontend)
         public static string ConvertirJsonAString(JsonDocument? horarioJson)
         {
             if (horarioJson == null) return "";
 
             try
             {
-                var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(horarioJson);
-                if (dict == null) return "";
+                //Obtener el string JSON del JsonDocument
+                var jsonString = horarioJson.RootElement.GetRawText();
+                Console.WriteLine($"JSON recibido para convertir: {jsonString}");
 
-                return string.Join("\n", dict.Select(kv => $"{kv.Key}: {kv.Value}"));
+                var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(jsonString);
+                if (dict == null || dict.Count == 0) return "";
+
+                Console.WriteLine($"Diccionario deserializado: {dict.Count} elementos");
+
+                var resultado = string.Join("\n", dict.Select(kv => $"{kv.Key}: {kv.Value}"));
+                Console.WriteLine($"Resultado: {resultado}");
+
+                return resultado;
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"Error en ConvertirJsonAString: {ex.Message}");
                 return "";
             }
         }

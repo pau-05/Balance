@@ -153,6 +153,26 @@ namespace Balance.API.Controllers
             {
                 psicologo.IdUsuario,
                 psicologo.NumLicencia,
+                HorarioTexto = horarioTexto
+            });
+        }
+
+        [HttpGet("psicologo-test/{id}")]
+        public async Task<IActionResult> GetPsicologoTest(Guid id)
+        {
+            var psicologo = await _context.Psicologos.FindAsync(id);
+            if (psicologo == null) return NotFound();
+
+            // Ver qué hay en la BD
+            var horarioRaw = psicologo.Horario?.RootElement.GetRawText() ?? "null";
+
+            var horarioTexto = ConvertidorJsonAString.ConvertirJsonAString(psicologo.Horario);
+
+            return Ok(new
+            {
+                psicologo.IdUsuario,
+                psicologo.NumLicencia,
+                HorarioRaw = horarioRaw,
                 Horario = horarioTexto
             });
         }
