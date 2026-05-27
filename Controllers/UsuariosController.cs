@@ -145,7 +145,7 @@ namespace Balance.API.Controllers
             var psicologo = await _context.Psicologos.FindAsync(id);
             if (psicologo == null) return NotFound();
 
-            // 🔥 Si Horario es null, pasar null al convertidor
+            //Si Horario es null, pasar null al convertidor
             string horarioTexto = "";
             if (psicologo.Horario != null)
             {
