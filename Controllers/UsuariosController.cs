@@ -77,7 +77,7 @@ namespace Balance.API.Controllers
                     uc.Usuario.Ape2,
                     uc.Usuario.Email,
                     uc.Usuario.FechaRegistro,
-                    Rol = uc.Rol
+                    Rol = uc.Rol.Nombre
                 })
                 .ToListAsync();
 
