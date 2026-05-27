@@ -93,7 +93,7 @@ namespace Balance.API.Controllers
 
             usuario.Nombre = dto.Nombre;
             usuario.Ape1 = dto.Ape1;
-            usuario.Ape2 = dto.Ape2;
+            usuario.Ape2 = dto.Ape2 ?? usuario.Ape2;
             usuario.Email = dto.Email;
 
             if (dto.Rol == "PACIENTE")
@@ -101,9 +101,12 @@ namespace Balance.API.Controllers
                 var paciente = await _context.Pacientes.FindAsync(id);
                 if (paciente != null)
                 {
-                    paciente.FechaNacimiento = dto.FechaNacimiento ?? paciente.FechaNacimiento;
-                    paciente.Telefono = dto.Telefono ?? paciente.Telefono;
-                    paciente.Direccion = dto.Direccion ?? paciente.Direccion;
+                    if (dto.FechaNacimiento.HasValue)
+                        paciente.FechaNacimiento = dto.FechaNacimiento.Value;
+                    if (!string.IsNullOrEmpty(dto.Telefono))
+                        paciente.Telefono = dto.Telefono;
+                    if (!string.IsNullOrEmpty(dto.Direccion))
+                        paciente.Direccion = dto.Direccion;
                 }
             }
             else if (dto.Rol == "PSICOLOGO")
@@ -111,9 +114,9 @@ namespace Balance.API.Controllers
                 var psicologo = await _context.Psicologos.FindAsync(id);
                 if (psicologo != null)
                 {
-                    psicologo.NumLicencia = dto.NumLicencia ?? psicologo.NumLicencia;
+                    if (!string.IsNullOrEmpty(dto.NumLicencia))
+                        psicologo.NumLicencia = dto.NumLicencia;
 
-                    //Convertir texto a JSON
                     if (!string.IsNullOrEmpty(dto.HorarioJson))
                     {
                         var horarioJson = ConvertidorJsonAString.ConvertirHorarioAJson(dto.HorarioJson);
