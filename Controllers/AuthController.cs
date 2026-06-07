@@ -65,7 +65,7 @@ namespace Balance.API.Controllers
 
             try
             {
-                // 1. Buscar invitación
+                //Buscar invitación
                 Console.WriteLine("Buscando invitación...");
                 var invitacion = await _context.Invitaciones
                     .Include(i => i.Rol)
@@ -83,7 +83,7 @@ namespace Balance.API.Controllers
 
                 Console.WriteLine($"Invitación encontrada. Rol: {invitacion.Rol?.Nombre}");
 
-                // 2. Verificar email no existente
+                //Verificar email no existente
                 Console.WriteLine("Verificando si email ya existe...");
                 var existeUsuario = await _context.Usuarios.AnyAsync(u => u.Email == dto.Email);
                 if (existeUsuario)
@@ -92,7 +92,7 @@ namespace Balance.API.Controllers
                     return BadRequest(new { mensaje = "Este email ya está registrado" });
                 }
 
-                // 3. Crear usuario
+                //Crear usuario
                 Console.WriteLine("Creando usuario...");
                 var usuario = new Usuario
                 {
@@ -108,7 +108,7 @@ namespace Balance.API.Controllers
                 await _context.SaveChangesAsync();
                 Console.WriteLine($"Usuario creado con ID: {usuario.Id}");
 
-                // 4. Crear relación usuario-centro
+                //Crear relación usuario-centro
                 Console.WriteLine("Creando relación usuario-centro...");
                 var usuarioCentro = new UsuarioCentro
                 {
@@ -122,11 +122,11 @@ namespace Balance.API.Controllers
                 await _context.SaveChangesAsync();
                 Console.WriteLine("Relación usuario-centro creada");
 
-                // 5. Crear datos específicos
+                //Crear datos específicos
                 Console.WriteLine($"Creando datos específicos para rol: {invitacion.Rol?.Nombre}");
                 if (invitacion.Rol?.Nombre == "PACIENTE")
                 {
-                    // Asegurar que la fecha es UTC
+                    //Asegurar que la fecha es UTC
                     DateTime fechaNacimiento;
                     if (dto.FechaNacimiento.HasValue)
                     {
@@ -162,13 +162,13 @@ namespace Balance.API.Controllers
                 await _context.SaveChangesAsync();
                 Console.WriteLine("Datos específicos guardados");
 
-                // 6. Marcar invitación como usada
+                //Marcar invitación como usada
                 Console.WriteLine("Marcando invitación como usada...");
                 invitacion.UsadoEn = DateTime.UtcNow;
                 invitacion.Activo = false;
                 await _context.SaveChangesAsync();
 
-                // 7. Generar token
+                //Generar token
                 Console.WriteLine("Generando token...");
                 var token = GenerateJwtToken(usuario);
 

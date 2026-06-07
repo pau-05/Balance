@@ -9,16 +9,16 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+//Servicios al contenedor.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.PropertyNamingPolicy = null;  // ← PascalCase
+        options.JsonSerializerOptions.PropertyNamingPolicy = null;
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register the DbContext with the PostgreSQL provider
+//Registro de DbContext con el proveedor de PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -51,9 +51,7 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// ============================================================
 // CONFIGURACIÓN DE UPLOADS 
-// ============================================================
 string uploadPath;
 
 // Detectar si estamos en Railway (por la variable de entorno o por la existencia de la carpeta)
@@ -82,9 +80,7 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads"
 });
 
-// ============================================================
 // CONFIGURACIÓN DEL PIPELINE
-// ============================================================
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {

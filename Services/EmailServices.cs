@@ -54,7 +54,7 @@ namespace Balance.API.Services
 
                 if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogInformation($"✅ Email enviado a {destinatario} via Resend");
+                    _logger.LogInformation($"Email enviado a {destinatario} via Resend");
                     return true;
                 }
                 else

@@ -15,7 +15,7 @@ namespace Balance.API.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
 
-        // 🔥 Ruta única y consistente para toda la clase
+        //Ruta única y consistente para toda la clase
         private readonly string _uploadsFolder = "/app/data/uploads";
 
         public RecursosController(ApplicationDbContext context, IWebHostEnvironment env)
@@ -30,7 +30,7 @@ namespace Balance.API.Controllers
         {
             try
             {
-                // 🔥 LOGS DE DEPURACIÓN
+                //LOGS DE DEPURACIÓN
                 Console.WriteLine($"=== UPLOAD DEBUG ===");
                 Console.WriteLine($"File: {file?.FileName}");
                 Console.WriteLine($"File length: {file?.Length}");
@@ -228,7 +228,7 @@ namespace Balance.API.Controllers
                 results.Add(new { path, exists, writable });
             }
 
-            // 🔥 También verificar la ruta que estamos usando actualmente
+            //También verificar la ruta que estamos usando actualmente
             var currentUploadsExists = Directory.Exists(_uploadsFolder);
             var currentUploadsWritable = false;
             if (currentUploadsExists)

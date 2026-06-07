@@ -12,7 +12,7 @@ namespace Balance.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "ADMIN")] // Solo administradores pueden crear invitaciones
+    [Authorize(Roles = "ADMIN")] //Solo administradores pueden crear invitaciones
     public class InvitacionesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -30,6 +30,7 @@ namespace Balance.API.Controllers
             _logger = logger;
         }
 
+        //Función simple para crear un número de 6 digitos 
         private string GenerarCodigoUnico()
         {
             return _random.Next(100000, 999999).ToString();
@@ -41,15 +42,15 @@ namespace Balance.API.Controllers
         {
             try
             {
-                // dto.Rol ya es un int (1,2,3)
+                //obtengo el id del rol
                 int idRol = dto.Rol;
 
-                // Validar que el rol existe
+                //Valida que el rol existe
                 var rol = await _context.Roles.FindAsync(idRol);
                 if (rol == null)
                     return BadRequest(new { mensaje = $"El rol con ID {idRol} no existe" });
 
-                // Obtener el centro del admin autenticado
+                //Obtener el centro del admin autenticado
                 var adminIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(adminIdClaim))
                     return Unauthorized();
@@ -59,20 +60,21 @@ namespace Balance.API.Controllers
                 var adminCentro = await _context.UsuarioCentros
                     .FirstOrDefaultAsync(uc => uc.IdUsuario == adminId && uc.Activo);
 
+                //En caso de que el admin no tuviera centro asociado
                 if (adminCentro == null)
                     return BadRequest(new { mensaje = "Admin no tiene centro asociado" });
 
                 var centro = await _context.Centros.FindAsync(adminCentro.IdCentro);
                 string centroNombre = centro?.Nombre ?? "Centro Terapéutico";
 
-                // Generar código único de 6 dígitos
+                //Generar código único de 6 dígitos
                 string codigo;
                 do
                 {
                     codigo = GenerarCodigoUnico();
                 } while (await _context.Invitaciones.AnyAsync(i => i.Codigo == codigo && i.UsadoEn == null));
 
-                // Crear invitación
+                //Crear invitación
                 var invitacion = new Invitacion
                 {
                     Id = Guid.NewGuid(),
@@ -100,6 +102,7 @@ namespace Balance.API.Controllers
                     _logger.LogWarning($"No se pudo enviar email a {dto.Email}. Código: {codigo}");
                 }
 
+                //Devuelve la respuesta
                 return Ok(new InvitacionResponseDto
                 {
                     Id = invitacion.Id,
